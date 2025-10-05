@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ranza
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pnpm
+        run: corepack prepare pnpm@9.7.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Set up env
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ranza?schema=public" >> packages/api/.env
+          echo "REDIS_URL=redis://localhost:6379" >> packages/api/.env
+          echo "JWT_SECRET=ci-secret" >> packages/api/.env
+
+      - name: Generate Prisma client
+        run: pnpm -C packages/api prisma:generate
+
+      - name: Migrate DB
+        run: pnpm -C packages/api prisma:migrate
+
+      - name: Seed DB
+        run: pnpm -C packages/api prisma:seed
+
+      - name: Run tests
+        run: pnpm test

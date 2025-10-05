@@ -1,0 +1,15 @@
+export const RANZA_VERSION = '0.1.0';
+
+export type Currency = 'GHS';
+
+export const DEFAULTS = {
+  DEFAULT_MATCH_RADIUS_KM: 10,
+  PICKUP_ACCEPT_TIMEOUT_SECONDS: 180,
+  MAX_SCHEDULE_AHEAD_DAYS: 7,
+  COMMISSION_PERCENT: 12,
+  BASE_FARE_GHS: 3,
+  PER_KM_RATE_GHS: 1.5,
+  PER_MIN_RATE_GHS: 0.15,
+  TOP_N_MATCHES: 5,
+} as const;
+

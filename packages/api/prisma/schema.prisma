@@ -1,0 +1,215 @@
+// Prisma schema for Ranza
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+  ADMIN
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TripType {
+  OFFERED_BY_DRIVER
+  REQUESTED_BY_PASSENGER
+}
+
+enum TripStatus {
+  OPEN
+  MATCHED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  PENDING_DRIVER_CONFIRMATION
+  DRIVER_ACCEPTED
+  DRIVER_REJECTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  MOBILE_MONEY
+  CARD
+  WALLET
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum MessageType {
+  TEXT
+  SYSTEM
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?  @unique
+  phoneNumber  String   @unique
+  authProvider String
+  role         UserRole @default(PASSENGER)
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  driverProfile  DriverProfile?
+  wallets        Wallet[]
+  tripsCreated   Trip[]      @relation("TripsCreatedByUser")
+  matchesAsPassenger Match[] @relation("MatchesPassenger")
+  matchesAsDriver    Match[] @relation("MatchesDriver")
+  paymentsAsPayer    Payment[] @relation("PaymentsPayer")
+  paymentsAsPayee    Payment[] @relation("PaymentsPayee")
+  ratingsGiven       Rating[]  @relation("RatingsGiven")
+  ratingsReceived    Rating[]  @relation("RatingsReceived")
+  messagesFrom       Message[] @relation("MessagesFrom")
+  messagesTo         Message[] @relation("MessagesTo")
+  adminUser          AdminUser?
+}
+
+model DriverProfile {
+  id                 String     @id @default(cuid())
+  userId             String     @unique
+  user               User       @relation(fields: [userId], references: [id])
+  nationalIdPhotoUrl String
+  licensePhotoUrl    String
+  // Back-relation to Vehicle; FK lives on Vehicle.driverId
+  vehicle            Vehicle?
+  ratingAvg          Float      @default(5)
+  kycStatus          KycStatus  @default(PENDING)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+}
+
+model Vehicle {
+  id          String        @id @default(cuid())
+  driverId    String        @unique
+  driver      DriverProfile @relation(fields: [driverId], references: [id])
+  plateNumber String        @unique
+  make        String
+  model       String
+  year        Int
+  seats       Int
+  photos      String[]
+  createdAt   DateTime      @default(now())
+}
+
+model Trip {
+  id           String      @id @default(cuid())
+  creatorId    String
+  creator      User        @relation("TripsCreatedByUser", fields: [creatorId], references: [id])
+  type         TripType
+  originLat    Float
+  originLng    Float
+  originAddress String
+  destinationLat Float
+  destinationLng Float
+  destinationAddress String
+  scheduledAt  DateTime
+  seatsAvailable Int
+  status       TripStatus  @default(OPEN)
+  fareDistanceKm   Float
+  fareDurationMinutes Int
+  fareAmountGHS  Float
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  matches      Match[]
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  tripId       String
+  trip         Trip        @relation(fields: [tripId], references: [id])
+  passengerId  String
+  passenger    User        @relation("MatchesPassenger", fields: [passengerId], references: [id])
+  driverId     String
+  driver       User        @relation("MatchesDriver", fields: [driverId], references: [id])
+  status       MatchStatus @default(PENDING_DRIVER_CONFIRMATION)
+  pickupEta    DateTime?
+  dropoffEta   DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  payments     Payment[]
+  messages     Message[]
+  ratings      Rating[]
+}
+
+model Payment {
+  id                   String        @id @default(cuid())
+  matchId              String
+  match                Match         @relation(fields: [matchId], references: [id])
+  payerId              String
+  payer                User          @relation("PaymentsPayer", fields: [payerId], references: [id])
+  payeeId              String
+  payee                User          @relation("PaymentsPayee", fields: [payeeId], references: [id])
+  amountGHS            Float
+  method               PaymentMethod
+  status               PaymentStatus @default(PENDING)
+  providerTransactionId String?
+  createdAt            DateTime      @default(now())
+}
+
+model Wallet {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id])
+  balanceGHS Float     @default(0)
+  currency   String    @default("GHS")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Rating {
+  id           String   @id @default(cuid())
+  matchId      String
+  match        Match    @relation(fields: [matchId], references: [id])
+  raterId      String
+  rater        User     @relation("RatingsGiven", fields: [raterId], references: [id])
+  ratedUserId  String
+  ratedUser    User     @relation("RatingsReceived", fields: [ratedUserId], references: [id])
+  score        Int
+  comment      String?
+  createdAt    DateTime @default(now())
+}
+
+model Message {
+  id           String      @id @default(cuid())
+  fromUserId   String
+  fromUser     User        @relation("MessagesFrom", fields: [fromUserId], references: [id])
+  toUserId     String?
+  toUser       User?       @relation("MessagesTo", fields: [toUserId], references: [id])
+  matchId      String?
+  match        Match?      @relation(fields: [matchId], references: [id])
+  content      String
+  messageType  MessageType @default(TEXT)
+  createdAt    DateTime    @default(now())
+}
+
+model AdminUser {
+  id        String @id @default(cuid())
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id])
+  rolePerms Json
+}
