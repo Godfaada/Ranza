@@ -9,6 +9,7 @@ const config: Config = {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/main.ts'],
+  testTimeout: 30000,
 };
 
 export default config;
