@@ -30,31 +30,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install pnpm
-        run: corepack prepare pnpm@9.7.0 --activate
+      - name: Install pnpm globally
+        run: npm install -g pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
-      - name: Set up env
+      - name: Set up env for API
         run: |
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ranza?schema=public" >> packages/api/.env
           echo "REDIS_URL=redis://localhost:6379" >> packages/api/.env
           echo "JWT_SECRET=ci-secret" >> packages/api/.env
 
       - name: Generate Prisma client
-        run: pnpm -C packages/api prisma:generate
+        run: pnpm -C packages/api run prisma:generate
 
       - name: Migrate DB
-        run: pnpm -C packages/api prisma:migrate
+        run: pnpm -C packages/api run prisma:migrate:deploy
 
       - name: Seed DB
-        run: pnpm -C packages/api prisma:seed
+        run: pnpm -C packages/api run prisma:seed
 
-      - name: Run tests
-        run: pnpm test
+      - name: Run API tests
+        run: pnpm -C packages/api test
