@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
-      # 6️⃣ Setup environment variables
+      # 6️⃣ Set up environment variables
       - name: Set up env for API
         run: |
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ranza?schema=public" >> packages/api/.env
@@ -69,7 +69,7 @@ jobs:
       - name: Generate Prisma client
         run: pnpm -C packages/api run prisma:generate
 
-      # 9️⃣ Apply migrations
+      # 9️⃣ Apply Prisma migrations
       - name: Deploy Prisma migrations
         run: pnpm -C packages/api run prisma:deploy
 
@@ -77,12 +77,14 @@ jobs:
       - name: Seed DB
         run: pnpm -C packages/api run prisma:seed
 
-      # 1️⃣1️⃣ Optional debug info
+      # 1️⃣1️⃣ Optional debug step
       - name: Debug DB
+        env:
+          PGPASSWORD: postgres
         run: |
           cat packages/api/.env
           psql -h localhost -U postgres -d ranza -c "\dt"
 
-      # 1️⃣2️⃣ Run tests
+      # 1️⃣2️⃣ Run API tests
       - name: Run API tests
         run: pnpm -C packages/api run test
