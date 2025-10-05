@@ -47,10 +47,10 @@ jobs:
         run: pnpm -C packages/api run prisma:generate
 
       - name: Migrate DB
-        run: pnpm -C packages/api run prisma:migrate:deploy
+        run: pnpm -C packages/api run prisma:deploy
 
       - name: Seed DB
         run: pnpm -C packages/api run prisma:seed
 
       - name: Run API tests
-        run: pnpm -C packages/api test
+        run: pnpm -C packages/api run test
