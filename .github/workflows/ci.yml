@@ -1,4 +1,4 @@
-name: CI
+\name: CI
 
 on:
   push:
@@ -17,40 +17,72 @@ jobs:
           POSTGRES_DB: ranza
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 10
       redis:
         image: redis:7
         ports: ['6379:6379']
         options: >-
-          --health-cmd "redis-cli ping || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
+          --health-cmd "redis-cli ping || exit 1" --health-interval 10s --health-timeout 5s --health-retries 10
 
     steps:
+      # 1️⃣ Checkout code
       - uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node.js
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install pnpm globally
+      # 3️⃣ Install pnpm globally
+      - name: Install pnpm
         run: npm install -g pnpm
 
+      # 4️⃣ Cache dependencies
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            **/node_modules
+            packages/api/node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      # 5️⃣ Install dependencies
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
+      # 6️⃣ Setup environment variables
       - name: Set up env for API
         run: |
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ranza?schema=public" >> packages/api/.env
           echo "REDIS_URL=redis://localhost:6379" >> packages/api/.env
           echo "JWT_SECRET=ci-secret" >> packages/api/.env
 
+      # 7️⃣ Wait for services to be healthy
+      - name: Wait for Postgres & Redis
+        run: |
+          npx wait-port localhost:5432
+          npx wait-port localhost:6379
+
+      # 8️⃣ Generate Prisma client
       - name: Generate Prisma client
         run: pnpm -C packages/api run prisma:generate
 
-      - name: Migrate DB
+      # 9️⃣ Apply migrations
+      - name: Deploy Prisma migrations
         run: pnpm -C packages/api run prisma:deploy
 
+      # 🔟 Seed the database
       - name: Seed DB
         run: pnpm -C packages/api run prisma:seed
 
+      # 1️⃣1️⃣ Optional debug info
+      - name: Debug DB
+        run: |
+          cat packages/api/.env
+          psql -h localhost -U postgres -d ranza -c "\dt"
+
+      # 1️⃣2️⃣ Run tests
       - name: Run API tests
         run: pnpm -C packages/api run test
